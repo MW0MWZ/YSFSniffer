@@ -1,0 +1,12 @@
+*.o
+*.d
+*~
+*.bak
+GitVersion.h
+YSFSniffer
+src/YSFSniffer
+tmp/
+captures/
+*.log
+.vscode/
+.vs/
