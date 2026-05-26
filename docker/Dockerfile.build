@@ -1,3 +1,10 @@
+# YSFSniffer build environment.
+#
+# This image is the development build rig only. The sniffer itself
+# runs natively on the user's target hardware (Pi-Star armhf or WPSD
+# arm64 -- the machine that runs MMDVMHost / YSFGateway). Nothing in
+# this image ends up on the target.
+
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -7,9 +14,12 @@ RUN apt-get update && \
         build-essential \
         g++ \
         make \
+        git \
         ca-certificates \
         python3 \
-        iproute2 && \
+        iproute2 \
+        g++-aarch64-linux-gnu \
+        g++-arm-linux-gnueabihf && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work
