@@ -1,5 +1,5 @@
 /*
- *   Copyright (C) 2015,2016 by Jonathan Naylor G4KLX
+ *   Copyright (C) 2015,2016,2018 by Jonathan Naylor G4KLX
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,32 +16,34 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#if !defined(YSFConvolution_H)
-#define  YSFConvolution_H
+#if !defined(STOPWATCH_H)
+#define	STOPWATCH_H
 
-#include "YSFConvolution.h"
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+#else
+#include <sys/time.h>
+#endif
 
-#include <cstdint>
-
-class CYSFConvolution {
+class CStopWatch
+{
 public:
-	CYSFConvolution();
-	~CYSFConvolution();
+	CStopWatch();
+	~CStopWatch();
 
-	void start();
-	void decode(uint8_t s0, uint8_t s1);
-	void chainback(unsigned char* out, unsigned int nBits);
+	unsigned long long time() const;
 
-	void encode(const unsigned char* in, unsigned char* out, unsigned int nBits) const;
+	unsigned long long start();
+	unsigned int       elapsed();
 
 private:
-	uint16_t* m_metrics1;
-	uint16_t* m_metrics2;
-	uint16_t* m_oldMetrics;
-	uint16_t* m_newMetrics;
-	uint64_t* m_decisions;
-	uint64_t* m_dp;
+#if defined(_WIN32) || defined(_WIN64)
+	LARGE_INTEGER  m_frequencyS;
+	LARGE_INTEGER  m_frequencyMS;
+	LARGE_INTEGER  m_start;
+#else
+	unsigned long long m_startMS;
+#endif
 };
 
 #endif
-

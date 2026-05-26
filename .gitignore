@@ -2,9 +2,11 @@
 *.d
 *~
 *.bak
-GitVersion.h
+obj/
+src/GitVersion.h
 YSFSniffer
-src/YSFSniffer
+YSFSniffer-arm64
+YSFSniffer-armhf
 tmp/
 captures/
 *.log

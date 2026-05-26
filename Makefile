@@ -1,10 +1,21 @@
 #
 # YSFSniffer - top-level Makefile
 #
-# All compilation and testing is expected to happen inside the Docker
-# build container. The default target ('all') is the in-container build.
-# From the host, use 'make image' to build the toolchain image and
-# 'make docker-build' / 'make docker-clean' to run targets in it.
+# Compilation runs inside the Docker build container so nothing leaks
+# onto the host. The resulting binary runs natively next to MMDVMHost /
+# YSFGateway on the user's target hardware (typically a Raspberry Pi
+# running Pi-Star or WPSD).
+#
+# Host-side commands:
+#   make image              -- build the toolchain image once
+#   make docker-build       -- native build (build-host arch)
+#   make docker-build-arm64 -- arm64  (Pi 3/4/5 64-bit, WPSD)
+#   make docker-build-armhf -- armhf  (32-bit Pi, Pi-Star)
+#   make docker-clean
+#   make docker-shell       -- shell inside the build container
+#
+# Each arch keeps its objects in its own obj/<arch>/ dir, so all three
+# binaries can coexist in the project root.
 #
 
 DOCKER_IMAGE ?= ysfsniffer-build:latest
@@ -12,51 +23,79 @@ DOCKER       ?= docker
 DOCKERFILE   ?= docker/Dockerfile.build
 
 CXX      ?= c++
-CXXFLAGS  = -g -O2 -Wall -Wextra -Wno-unused-parameter -std=c++17 -MMD -MD -pthread -Isrc
+CXXFLAGS  = -g -O2 -Wall -Wextra -Wno-unused-parameter -std=c++17 -MMD -MD -pthread
 LDFLAGS   = -g
 LIBS      = -lpthread
 
 SRCDIR    = src
+OBJDIR   ?= obj/native
+TARGET   ?= YSFSniffer
+
 SRCS      = $(wildcard $(SRCDIR)/*.cpp)
-OBJS      = $(SRCS:.cpp=.o)
-DEPS      = $(SRCS:.cpp=.d)
+OBJS      = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRCS))
+DEPS      = $(OBJS:.o=.d)
 
-TARGET    = YSFSniffer
-
-# ---- in-container targets (these are what the Dockerfile/CI actually run) ----
+# ---- in-container build targets ----
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CXX) $(OBJS) $(LDFLAGS) $(LIBS) -o $@
 
-%.o: %.cpp
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp | $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(OBJDIR):
+	@mkdir -p $(OBJDIR)
 
 -include $(DEPS)
 
+$(OBJDIR)/YSFSniffer.o: $(SRCDIR)/GitVersion.h FORCE
+
+.PHONY: $(SRCDIR)/GitVersion.h FORCE
+
+FORCE:
+
+$(SRCDIR)/GitVersion.h:
+ifneq ("$(wildcard .git/index)","")
+	@echo 'const char *gitversion = "$(shell git rev-parse HEAD 2>/dev/null)";' > $@
+else
+	@echo 'const char *gitversion = "0000000000000000000000000000000000000000";' > $@
+endif
+
 clean:
-	$(RM) $(TARGET) $(OBJS) $(DEPS) $(SRCDIR)/GitVersion.h
+	$(RM) -r obj YSFSniffer YSFSniffer-arm64 YSFSniffer-armhf $(SRCDIR)/GitVersion.h
 
 install:
 	install -m 755 $(TARGET) /usr/local/bin/
 
-# ---- host-side helpers: run a target inside the Docker build container ----
+# ---- host-side wrappers (run inside the Docker build container) ----
+
+DOCKER_RUN = $(DOCKER) run --rm \
+	-v "$(CURDIR)":/work -w /work \
+	-u $$(id -u):$$(id -g) \
+	$(DOCKER_IMAGE)
 
 image:
 	$(DOCKER) build -f $(DOCKERFILE) -t $(DOCKER_IMAGE) .
 
 docker-build: image
-	$(DOCKER) run --rm \
-	    -v "$(CURDIR)":/work -w /work \
-	    -u $$(id -u):$$(id -g) \
-	    $(DOCKER_IMAGE) make all
+	$(DOCKER_RUN) make all OBJDIR=obj/native TARGET=YSFSniffer
+
+docker-build-arm64: image
+	$(DOCKER_RUN) make all \
+	    OBJDIR=obj/arm64 \
+	    CXX=aarch64-linux-gnu-g++ \
+	    TARGET=YSFSniffer-arm64
+
+docker-build-armhf: image
+	$(DOCKER_RUN) make all \
+	    OBJDIR=obj/armhf \
+	    CXX=arm-linux-gnueabihf-g++ \
+	    TARGET=YSFSniffer-armhf
 
 docker-clean: image
-	$(DOCKER) run --rm \
-	    -v "$(CURDIR)":/work -w /work \
-	    -u $$(id -u):$$(id -g) \
-	    $(DOCKER_IMAGE) make clean
+	$(DOCKER_RUN) make clean
 
 docker-shell: image
 	$(DOCKER) run --rm -it \
@@ -64,4 +103,4 @@ docker-shell: image
 	    -u $$(id -u):$$(id -g) \
 	    $(DOCKER_IMAGE) /bin/bash
 
-.PHONY: all clean install image docker-build docker-clean docker-shell
+.PHONY: all clean install image docker-build docker-build-arm64 docker-build-armhf docker-clean docker-shell

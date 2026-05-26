@@ -1,4 +1,5 @@
 /*
+ *   Copyright (C) 2015-2020,2023,2025 by Jonathan Naylor G4KLX
  *   Copyright (C) 2026 YSFSniffer contributors
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -19,7 +20,7 @@ namespace {
 enum class Section {
 	NONE,
 	GENERAL,
-	SNIFFER,
+	LOG,
 	OTHER
 };
 
@@ -29,13 +30,16 @@ void rtrim(std::string& s) {
 		s.pop_back();
 }
 
+void ltrim(std::string& s) {
+	size_t i = 0;
+	while (i < s.size() && (s[i] == ' ' || s[i] == '\t'))
+		++i;
+	if (i > 0) s.erase(0, i);
+}
+
 void stripQuotes(std::string& s) {
 	if (s.size() >= 2 && s.front() == '"' && s.back() == '"')
 		s = s.substr(1, s.size() - 2);
-}
-
-bool asBool(const std::string& v) {
-	return v == "1" || v == "true" || v == "TRUE" || v == "yes" || v == "YES";
 }
 
 } // namespace
@@ -43,15 +47,12 @@ bool asBool(const std::string& v) {
 CConf::CConf(const std::string& file) :
 	m_file(file),
 	m_callsign(),
-	m_localAddress("127.0.0.1"),
-	m_localPort(0U),
 	m_rptAddress("127.0.0.1"),
 	m_rptPort(0U),
-	m_outputFile(),
-	m_stdoutEnabled(true),
-	m_decodeFICH(true),
-	m_onlyYSFD(false),
-	m_filterByRpt(false)
+	m_myAddress("127.0.0.1"),
+	m_myPort(0U),
+	m_daemon(false),
+	m_logDisplayLevel(1U)
 {
 }
 
@@ -68,60 +69,53 @@ bool CConf::read() {
 	char buffer[512];
 
 	while (::fgets(buffer, sizeof(buffer), fp) != nullptr) {
-		if (buffer[0] == '#' || buffer[0] == ';' || buffer[0] == '\n' || buffer[0] == '\r')
+		if (buffer[0] == '#' || buffer[0] == ';' ||
+		    buffer[0] == '\n' || buffer[0] == '\r')
 			continue;
 
 		if (buffer[0] == '[') {
-			if (::strncmp(buffer, "[General]", 9) == 0)
-				section = Section::GENERAL;
-			else if (::strncmp(buffer, "[Sniffer]", 9) == 0)
-				section = Section::SNIFFER;
-			else
-				section = Section::OTHER;
+			if      (::strncmp(buffer, "[General]", 9) == 0) section = Section::GENERAL;
+			else if (::strncmp(buffer, "[Log]",     5) == 0) section = Section::LOG;
+			else                                             section = Section::OTHER;
 			continue;
 		}
 
 		char* eq = ::strchr(buffer, '=');
 		if (eq == nullptr)
 			continue;
-
 		*eq = '\0';
+
 		std::string key   = buffer;
 		std::string value = eq + 1;
-
-		rtrim(key);
-		rtrim(value);
-		while (!key.empty() && (key.front() == ' ' || key.front() == '\t'))
-			key.erase(key.begin());
-		while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
-			value.erase(value.begin());
+		rtrim(key);   ltrim(key);
+		rtrim(value); ltrim(value);
 		stripQuotes(value);
 
 		if (section == Section::GENERAL) {
-			if      (key == "Callsign")     m_callsign     = value;
-			else if (key == "LocalAddress") m_localAddress = value;
-			else if (key == "LocalPort")    m_localPort    = (unsigned short)std::atoi(value.c_str());
-			else if (key == "RptAddress")   m_rptAddress   = value;
-			else if (key == "RptPort")      m_rptPort      = (unsigned short)std::atoi(value.c_str());
-		} else if (section == Section::SNIFFER) {
-			if      (key == "OutputFile")   m_outputFile    = value;
-			else if (key == "Stdout")       m_stdoutEnabled = asBool(value);
-			else if (key == "DecodeFICH")   m_decodeFICH    = asBool(value);
-			else if (key == "OnlyYSFD")     m_onlyYSFD      = asBool(value);
-			else if (key == "FilterByRpt")  m_filterByRpt   = asBool(value);
+			if      (key == "Callsign")     m_callsign    = value;
+			else if (key == "RptAddress")   m_rptAddress  = value;
+			else if (key == "RptPort")      m_rptPort     = (unsigned short)std::atoi(value.c_str());
+			else if (key == "LocalAddress") m_myAddress   = value;
+			else if (key == "LocalPort")    m_myPort      = (unsigned short)std::atoi(value.c_str());
+			else if (key == "Daemon")       m_daemon      = std::atoi(value.c_str()) == 1;
+		} else if (section == Section::LOG) {
+			if      (key == "DisplayLevel") m_logDisplayLevel = (unsigned int)std::atoi(value.c_str());
 		}
 	}
 
 	::fclose(fp);
 
-	if (m_localPort == 0U) {
-		::fprintf(stderr, "YSFSniffer: [General] LocalPort missing or zero\n");
-		return false;
-	}
 	if (m_callsign.empty()) {
-		::fprintf(stderr, "YSFSniffer: [General] Callsign missing\n");
+		::fprintf(stderr, "YSFSniffer: %s missing [General] Callsign\n", m_file.c_str());
 		return false;
 	}
-
+	if (m_myPort == 0U) {
+		::fprintf(stderr, "YSFSniffer: %s missing [General] LocalPort\n", m_file.c_str());
+		return false;
+	}
+	if (m_rptPort == 0U) {
+		::fprintf(stderr, "YSFSniffer: %s missing [General] RptPort\n", m_file.c_str());
+		return false;
+	}
 	return true;
 }

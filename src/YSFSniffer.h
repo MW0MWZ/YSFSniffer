@@ -1,5 +1,6 @@
 /*
- *   Copyright (C) 2015,2016 by Jonathan Naylor G4KLX
+ *   Copyright (C) 2016-2020,2023,2024,2025,2026 by Jonathan Naylor G4KLX
+ *   Copyright (C) 2026 YSFSniffer contributors
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -10,22 +11,26 @@
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#if !defined(CRC_H)
-#define	CRC_H
+#if !defined(YSFSniffer_H)
+#define YSFSniffer_H
 
-class CCRC
+#include "Conf.h"
+
+#include <string>
+
+class CYSFSniffer
 {
 public:
-	static void addCCITT16(unsigned char* in, unsigned int length);
-	static bool checkCCITT16(const unsigned char* in, unsigned int length);
+	explicit CYSFSniffer(const std::string& configFile);
+	~CYSFSniffer();
 
-	static unsigned char addCRC(const unsigned char* in, unsigned int length);
+	int run();
+
+private:
+	std::string m_callsign;
+	CConf       m_conf;
 };
 
 #endif
