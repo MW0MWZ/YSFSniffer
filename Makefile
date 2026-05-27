@@ -31,9 +31,11 @@ SRCDIR    = src
 OBJDIR   ?= obj/native
 TARGET   ?= YSFSniffer
 
-# Filter out OneDrive / editor turds (safeBackup conflict copies, ~conflict files)
+# Filter out OneDrive / editor turds. GNU make's filter-out only honours a
+# single % per pattern, so use a foreach + findstring chain that catches
+# 'safeBackup' or '~conflict' anywhere in the filename.
 ALL_SRCS  = $(wildcard $(SRCDIR)/*.cpp)
-SRCS      = $(filter-out %safeBackup%.cpp %~conflict%.cpp,$(ALL_SRCS))
+SRCS      = $(foreach f,$(ALL_SRCS),$(if $(or $(findstring safeBackup,$f),$(findstring ~conflict,$f)),,$f))
 OBJS      = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRCS))
 DEPS      = $(OBJS:.o=.d)
 

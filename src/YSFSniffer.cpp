@@ -26,6 +26,8 @@
 #include "Version.h"
 #include "Thread.h"
 #include "Log.h"
+#include "YSFDefines.h"
+#include "YSFFICH.h"
 #include "GitVersion.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -50,6 +52,47 @@ const char* DEFAULT_INI_FILE = "/etc/YSFGateway.ini";
 #include <clocale>
 
 static CYSFSniffer* sniffer = nullptr;
+
+static const char* fiName(unsigned char v)
+{
+	switch (v) {
+	case YSF_FI_HEADER:         return "HEADER";
+	case YSF_FI_COMMUNICATIONS: return "COMMS";
+	case YSF_FI_TERMINATOR:     return "TERM";
+	case YSF_FI_TEST:           return "TEST";
+	}
+	return "?";
+}
+
+static const char* cmName(unsigned char v)
+{
+	switch (v) {
+	case YSF_CM_GROUP1:     return "GROUP1";
+	case YSF_CM_GROUP2:     return "GROUP2";
+	case YSF_CM_INDIVIDUAL: return "INDIVIDUAL";
+	}
+	return "?";
+}
+
+static const char* dtName(unsigned char v)
+{
+	switch (v) {
+	case YSF_DT_VD_MODE1:      return "V/D MODE1";
+	case YSF_DT_DATA_FR_MODE:  return "DATA FR";
+	case YSF_DT_VD_MODE2:      return "V/D MODE2";
+	case YSF_DT_VOICE_FR_MODE: return "VOICE FR";
+	}
+	return "?";
+}
+
+static const char* mrName(unsigned char v)
+{
+	switch (v) {
+	case YSF_MR_NOT_BUSY: return "NOT_BUSY";
+	case YSF_MR_BUSY:     return "BUSY";
+	}
+	return "?";
+}
 
 static bool m_killed = false;
 static int  m_signal = 0;
@@ -249,11 +292,41 @@ int CYSFSniffer::run()
 	while (!m_killed) {
 		unsigned char buffer[200U];
 
-		// Drain the ring buffer. We don't do anything with the data
-		// itself; the CUtils::dump() inside CYSFNetwork::clock() has
-		// already logged each packet as it arrived.
-		while (rptNetwork.read(buffer) > 0U)
-			;
+		// Drain the ring buffer. The CUtils::dump() inside
+		// CYSFNetwork::clock() has already logged the raw bytes of each
+		// inbound packet; here we additionally decode the YSF FICH of
+		// every YSFD (data) frame so the log carries the protocol-level
+		// interpretation alongside the hex dump.
+		unsigned int len;
+		while ((len = rptNetwork.read(buffer)) > 0U) {
+			if (len >= 35U + YSF_FRAME_LENGTH_BYTES &&
+			    ::memcmp(buffer, "YSFD", 4U) == 0) {
+				CYSFFICH fich;
+				if (fich.decode(buffer + 35U)) {
+					unsigned char raw[4];
+					fich.getRaw(raw);
+					bool voip = (raw[2] & 0x04U) != 0U;
+					LogDebug("FICH: raw=%02X %02X %02X %02X  "
+					         "FI=%s CM=%s DT=%s  "
+					         "BN=%u BT=%u FN=%u FT=%u  "
+					         "DGID=%u  MR=%s Dev=%u VoIP=%u",
+					         raw[0], raw[1], raw[2], raw[3],
+					         fiName(fich.getFI()),
+					         cmName(fich.getCM()),
+					         dtName(fich.getDT()),
+					         (unsigned)fich.getBN(),
+					         (unsigned)fich.getBT(),
+					         (unsigned)fich.getFN(),
+					         (unsigned)fich.getFT(),
+					         (unsigned)fich.getDGId(),
+					         mrName(fich.getMR()),
+					         (unsigned)fich.getDev(),
+					         (unsigned)voip);
+				} else {
+					LogDebug("FICH: decode FAILED (CRC mismatch)");
+				}
+			}
+		}
 
 		unsigned int ms = stopWatch.elapsed();
 		stopWatch.start();
