@@ -3,6 +3,8 @@
 *~
 *.bak
 obj/
+*safeBackup*
+*~conflict*
 src/GitVersion.h
 YSFSniffer
 YSFSniffer-arm64

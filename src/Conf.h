@@ -34,6 +34,10 @@ public:
 	bool                getDaemon()     const { return m_daemon; }
 
 	// [Log]
+	unsigned int        getLogFileLevel()    const { return m_logFileLevel; }
+	const std::string&  getLogFilePath()     const { return m_logFilePath; }
+	const std::string&  getLogFileRoot()     const { return m_logFileRoot; }
+	bool                getLogFileRotate()   const { return m_logFileRotate; }
 	unsigned int        getLogDisplayLevel() const { return m_logDisplayLevel; }
 
 private:
@@ -44,6 +48,11 @@ private:
 	std::string    m_myAddress;
 	unsigned short m_myPort;
 	bool           m_daemon;
+
+	unsigned int   m_logFileLevel;
+	std::string    m_logFilePath;
+	std::string    m_logFileRoot;
+	bool           m_logFileRotate;
 	unsigned int   m_logDisplayLevel;
 };
 

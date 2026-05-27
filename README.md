@@ -41,14 +41,16 @@ gateway already uses:
 
 ```sh
 sudo systemctl stop ysfgateway
-./YSFSniffer-arm64 /etc/YSFGateway.ini | tee /var/log/ysfsniffer.log
+./YSFSniffer-arm64 /etc/YSFGateway.ini
 # ... do your testing ...
 sudo systemctl start ysfgateway
 ```
 
 YSFSniffer reads the same `[General]` keys as YSFGateway (callsign, local /
-RptAddress, ports, daemon, etc.) and binds the same UDP port. It does not
-require or read any new config keys. MMDVMHost does not need to be touched.
+RptAddress, ports, daemon, etc.) and the same `[Log]` keys (`FilePath`,
+`FileRoot`, `FileLevel`, `DisplayLevel`, `FileRotate`) — so whatever rotating
+log file your existing YSFGateway writes to, YSFSniffer writes to too. No
+config edits required. MMDVMHost does not need to be touched.
 
 While YSFSniffer is running it logs every frame received from MMDVMHost but
 forwards nothing anywhere — your radio's YSF traffic will not reach a reflector

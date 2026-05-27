@@ -52,6 +52,10 @@ CConf::CConf(const std::string& file) :
 	m_myAddress("127.0.0.1"),
 	m_myPort(0U),
 	m_daemon(false),
+	m_logFileLevel(0U),
+	m_logFilePath(),
+	m_logFileRoot(),
+	m_logFileRotate(true),
 	m_logDisplayLevel(1U)
 {
 }
@@ -99,7 +103,11 @@ bool CConf::read() {
 			else if (key == "LocalPort")    m_myPort      = (unsigned short)std::atoi(value.c_str());
 			else if (key == "Daemon")       m_daemon      = std::atoi(value.c_str()) == 1;
 		} else if (section == Section::LOG) {
-			if      (key == "DisplayLevel") m_logDisplayLevel = (unsigned int)std::atoi(value.c_str());
+			if      (key == "FilePath")     m_logFilePath     = value;
+			else if (key == "FileRoot")     m_logFileRoot     = value;
+			else if (key == "FileLevel")    m_logFileLevel    = (unsigned int)std::atoi(value.c_str());
+			else if (key == "FileRotate")   m_logFileRotate   = std::atoi(value.c_str()) == 1;
+			else if (key == "DisplayLevel") m_logDisplayLevel = (unsigned int)std::atoi(value.c_str());
 		}
 	}
 

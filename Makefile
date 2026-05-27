@@ -31,7 +31,9 @@ SRCDIR    = src
 OBJDIR   ?= obj/native
 TARGET   ?= YSFSniffer
 
-SRCS      = $(wildcard $(SRCDIR)/*.cpp)
+# Filter out OneDrive / editor turds (safeBackup conflict copies, ~conflict files)
+ALL_SRCS  = $(wildcard $(SRCDIR)/*.cpp)
+SRCS      = $(filter-out %safeBackup%.cpp %~conflict%.cpp,$(ALL_SRCS))
 OBJS      = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRCS))
 DEPS      = $(OBJS:.o=.d)
 

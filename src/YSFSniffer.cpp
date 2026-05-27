@@ -198,7 +198,18 @@ int CYSFSniffer::run()
 	}
 #endif
 
-	::LogInitialise(m_conf.getLogDisplayLevel());
+	if (!::LogInitialise(m_conf.getDaemon(),
+	                     m_conf.getLogFilePath(),
+	                     m_conf.getLogFileRoot(),
+	                     m_conf.getLogFileLevel(),
+	                     m_conf.getLogDisplayLevel(),
+	                     m_conf.getLogFileRotate())) {
+		::fprintf(stderr,
+		          "YSFSniffer: cannot open log file (FilePath=%s FileRoot=%s)\n",
+		          m_conf.getLogFilePath().c_str(),
+		          m_conf.getLogFileRoot().c_str());
+		return 1;
+	}
 
 	m_callsign = m_conf.getCallsign();
 
